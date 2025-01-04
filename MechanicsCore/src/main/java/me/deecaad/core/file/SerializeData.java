@@ -1,29 +1,41 @@
 package me.deecaad.core.file;
 
-import com.cryptomorin.xseries.XEntityType;
-import com.cryptomorin.xseries.XMaterial;
-import com.cryptomorin.xseries.particles.XParticle;
-import me.deecaad.core.mechanics.Registry;
-import me.deecaad.core.utils.EnumUtil;
-import me.deecaad.core.utils.MinecraftVersions;
-import me.deecaad.core.utils.ReflectionUtil;
-import me.deecaad.core.utils.SerializerUtil;
-import me.deecaad.core.utils.StringUtil;
+import java.io.File;
+import java.util.ArrayList;
+import java.util.Arrays;
+import java.util.Collections;
+import java.util.LinkedHashSet;
+import java.util.LinkedList;
+import java.util.List;
+import java.util.Locale;
+import java.util.Map;
+import java.util.Objects;
+import java.util.Optional;
+import java.util.Set;
+import java.util.stream.Stream;
+
 import org.bukkit.Keyed;
 import org.bukkit.Material;
 import org.bukkit.NamespacedKey;
 import org.bukkit.Particle;
+import org.bukkit.Sound;
 import org.bukkit.configuration.ConfigurationSection;
 import org.bukkit.entity.EntityType;
 import org.bukkit.inventory.ItemStack;
 import org.jetbrains.annotations.NotNull;
 import org.jetbrains.annotations.Nullable;
 
-import java.io.File;
-import java.util.*;
-import java.util.stream.Stream;
+import com.cryptomorin.xseries.XEntityType;
+import com.cryptomorin.xseries.XMaterial;
+import com.cryptomorin.xseries.particles.XParticle;
 
 import static me.deecaad.core.file.InlineSerializer.UNIQUE_IDENTIFIER;
+import me.deecaad.core.mechanics.Registry;
+import me.deecaad.core.utils.EnumUtil;
+import me.deecaad.core.utils.MinecraftVersions;
+import me.deecaad.core.utils.ReflectionUtil;
+import me.deecaad.core.utils.SerializerUtil;
+import me.deecaad.core.utils.StringUtil;
 
 /**
  * {@link SerializeData} wraps a {@link ConfigurationSection} and a key along with useful
@@ -915,29 +927,37 @@ public class SerializeData {
          * @throws SerializerException If there is a misconfiguration in config.
          */
         @Nullable public <T extends Enum<T>> T getEnum(@NotNull Class<T> clazz, @Nullable T defaultValue) throws SerializerException {
-            String input = usingStep ? pathToConfig.getObject(getPath(relative), String.class) : config.getString(getPath(relative));
+            String input = usingStep ? pathToConfig.getString(getPath(relative)) : config.getString(getPath(relative));
 
-            // Use assertExists for required keys
             if (input == null || input.isBlank())
                 return defaultValue;
 
-            // Wildcards are not allowed for singleton enums, they are only
-            // allowed for lists.
-            input = input.trim();
-            if (input.startsWith("$"))
-                throw new SerializerEnumException(serializer, clazz, input, false, getLocation())
-                    .addMessage(wikiLink != null, getWikiMessage());
+            input = input.trim().toUpperCase(Locale.ROOT);
 
-            // The returned value will have either 0 elements (meaning that the
-            // input is invalid) OR 1 element (meaning that the input is valid).
-            List<T> list = EnumUtil.parseEnums(clazz, input);
-            if (list.isEmpty()) {
-                throw new SerializerEnumException(serializer, clazz, input, false, getLocation())
-                    .addMessage(wikiLink != null, getWikiMessage());
+            // Special handling for Sound class
+            if (Sound.class.isAssignableFrom(clazz)) {
+                try {
+                    Sound sound = Sound.valueOf(input);
+                    return clazz.cast(sound);
+                } catch (IllegalArgumentException ex) {
+                    throw new SerializerEnumException(serializer, Sound.class, input, false, getLocation())
+                        .addMessage(wikiLink != null, getWikiMessage());
+                }
             }
 
-            // At this point, the list is guaranteed to have exactly 1 element.
-            return list.get(0);
+            // Handle regular enums
+            if (Enum.class.isAssignableFrom(clazz)) {
+                try {
+                    @SuppressWarnings("unchecked")
+                    T value = (T) Enum.valueOf((Class<? extends Enum>) clazz, input);
+                    return value;
+                } catch (IllegalArgumentException ex) {
+                    throw new SerializerEnumException(serializer, (Class<? extends Enum>) clazz, input, false, getLocation())
+                        .addMessage(wikiLink != null, getWikiMessage());
+                }
+            }
+
+            throw new IllegalArgumentException("Class " + clazz.getName() + " is not an enum or Sound class");
         }
 
         /**

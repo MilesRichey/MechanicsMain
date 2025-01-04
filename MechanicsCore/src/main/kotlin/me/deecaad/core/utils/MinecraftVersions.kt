@@ -150,6 +150,7 @@ object MinecraftVersions {
         Update(1, 21) {
             add(Version(it, 0, 1)) // 1.21
             add(Version(it, 1, 1)) // 1.21.1
+            add(Version(it, 3, 3)) // 1.21.3
         }
 
     /**

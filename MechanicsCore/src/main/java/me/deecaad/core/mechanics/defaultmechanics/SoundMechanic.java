@@ -1,14 +1,12 @@
 package me.deecaad.core.mechanics.defaultmechanics;
 
-import me.deecaad.core.file.SerializeData;
-import me.deecaad.core.file.SerializerException;
-import me.deecaad.core.mechanics.CastData;
-import me.deecaad.core.mechanics.Mechanics;
-import me.deecaad.core.mechanics.PlayerEffectMechanic;
-import me.deecaad.core.mechanics.conditions.Condition;
-import me.deecaad.core.mechanics.targeters.Targeter;
-import me.deecaad.core.mechanics.targeters.WorldTargeter;
-import me.deecaad.core.utils.RandomUtil;
+import java.util.Arrays;
+import java.util.Iterator;
+import java.util.List;
+import java.util.Set;
+import java.util.function.Supplier;
+import java.util.stream.Collectors;
+
 import org.bukkit.Location;
 import org.bukkit.Sound;
 import org.bukkit.SoundCategory;
@@ -16,9 +14,16 @@ import org.bukkit.entity.Player;
 import org.jetbrains.annotations.NotNull;
 import org.jetbrains.annotations.Nullable;
 
-import java.util.Iterator;
-import java.util.List;
-import java.util.function.Supplier;
+import me.deecaad.core.file.SerializeData;
+import me.deecaad.core.file.SerializerException;
+import me.deecaad.core.file.SerializerOptionsException;
+import me.deecaad.core.mechanics.CastData;
+import me.deecaad.core.mechanics.Mechanics;
+import me.deecaad.core.mechanics.PlayerEffectMechanic;
+import me.deecaad.core.mechanics.conditions.Condition;
+import me.deecaad.core.mechanics.targeters.Targeter;
+import me.deecaad.core.mechanics.targeters.WorldTargeter;
+import me.deecaad.core.utils.RandomUtil;
 
 public class SoundMechanic extends PlayerEffectMechanic {
 
@@ -125,7 +130,19 @@ public class SoundMechanic extends PlayerEffectMechanic {
 
     @NotNull @Override
     public Mechanic serialize(@NotNull SerializeData data) throws SerializerException {
-        Sound sound = data.of("Sound").assertExists().getEnum(Sound.class);
+        Sound sound;
+        try {
+            sound = Sound.valueOf(data.of("Sound").assertExists().get().toString().toUpperCase());
+        } catch (IllegalArgumentException ex) {
+            Set<String> options = Arrays.stream(Sound.values())
+                .map(Enum::name)
+                .collect(Collectors.toSet());
+            
+            throw new SerializerOptionsException(getKeyword(), "Sound", options, 
+                data.of("Sound").get().toString(), data.of().getLocation())
+                .addMessage(getWikiLink() != null, "Check the wiki for more info: " + getWikiLink());
+        }
+
         float volume = (float) data.of("Volume").assertPositive().getDouble(1.0);
         float pitch = (float) data.of("Pitch").assertRange(0.5, 2.0).getDouble(1.0);
         float noise = (float) data.of("Noise").assertRange(0.0, 1.5).getDouble(0.0);
@@ -134,8 +151,6 @@ public class SoundMechanic extends PlayerEffectMechanic {
         Targeter listeners = data.of("Listeners").getRegistry(Mechanics.TARGETERS, null);
         List<Condition> listenerConditions = data.of("Listener_Conditions").getRegistryList(Mechanics.CONDITIONS);
 
-        // If the user wants to use listener conditions, be sure to use a
-        // targeter for listeners (Otherwise these conditions are ignored).
         if (!listenerConditions.isEmpty() && listeners == null)
             listeners = new WorldTargeter();
 
