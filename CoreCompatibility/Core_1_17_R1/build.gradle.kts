@@ -11,11 +11,11 @@ dependencies {
 }
 
 // These older
-java.toolchain.languageVersion.set(JavaLanguageVersion.of(16))
+java.toolchain.languageVersion.set(JavaLanguageVersion.of(17))
 
 tasks {
     compileJava {
         options.encoding = Charsets.UTF_8.name() // We want UTF-8 for everything
-        options.release.set(16)
+        options.release.set(17)
     }
 }
